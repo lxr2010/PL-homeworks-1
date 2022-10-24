@@ -194,7 +194,7 @@ var Nameless = {
   toString: toString$1
 };
 
-function comp(expr) {
+function compHelper(expr, depthtable, stkdepth) {
   switch (expr.TAG | 0) {
     case /* Cst */0 :
         return {
@@ -206,8 +206,8 @@ function comp(expr) {
               };
     case /* Add */1 :
         return Belt_List.concatMany([
-                    comp(expr._0),
-                    comp(expr._1),
+                    compHelper(expr._0, depthtable, stkdepth),
+                    compHelper(expr._1, depthtable, stkdepth + 1 | 0),
                     {
                       hd: /* Add */0,
                       tl: /* [] */0
@@ -215,25 +215,40 @@ function comp(expr) {
                   ]);
     case /* Mul */2 :
         return Belt_List.concatMany([
-                    comp(expr._0),
-                    comp(expr._1),
+                    compHelper(expr._0, depthtable, stkdepth),
+                    compHelper(expr._1, depthtable, stkdepth + 1 | 0),
                     {
                       hd: /* Mul */1,
                       tl: /* [] */0
                     }
                   ]);
     case /* Var */3 :
-        return {
-                hd: {
-                  TAG: /* Var */1,
-                  _0: expr._0
-                },
-                tl: /* [] */0
-              };
+        var h = Belt_List.get(depthtable, expr._0);
+        if (h !== undefined) {
+          return {
+                  hd: {
+                    TAG: /* Var */1,
+                    _0: stkdepth - h | 0
+                  },
+                  tl: /* [] */0
+                };
+        }
+        throw {
+              RE_EXN_ID: "Assert_failure",
+              _1: [
+                "Demo.res",
+                85,
+                18
+              ],
+              Error: new Error()
+            };
     case /* Let */4 :
         return Belt_List.concatMany([
-                    comp(expr._0),
-                    comp(expr._1),
+                    compHelper(expr._0, depthtable, stkdepth),
+                    compHelper(expr._1, {
+                          hd: stkdepth + 1 | 0,
+                          tl: depthtable
+                        }, stkdepth + 1 | 0),
                     {
                       hd: /* Swap */3,
                       tl: {
@@ -246,7 +261,12 @@ function comp(expr) {
   }
 }
 
+function comp(expr) {
+  return compHelper(expr, /* [] */0, 0);
+}
+
 var NamelessExprToStackMachineWithVariables = {
+  compHelper: compHelper,
   comp: comp
 };
 
@@ -320,7 +340,7 @@ function assoc(s, env) {
         RE_EXN_ID: "Assert_failure",
         _1: [
           "Demo.res",
-          142,
+          149,
           16
         ],
         Error: new Error()
@@ -407,7 +427,7 @@ function $$eval$1(_instrs, _stk, _env) {
                       RE_EXN_ID: "Assert_failure",
                       _1: [
                         "Demo.res",
-                        155,
+                        162,
                         8
                       ],
                       Error: new Error()
@@ -428,7 +448,7 @@ function $$eval$1(_instrs, _stk, _env) {
           RE_EXN_ID: "Assert_failure",
           _1: [
             "Demo.res",
-            163,
+            170,
             8
           ],
           Error: new Error()
@@ -447,7 +467,7 @@ function interpret$1(instrs) {
         RE_EXN_ID: "Assert_failure",
         _1: [
           "Demo.res",
-          174,
+          181,
           8
         ],
         Error: new Error()
@@ -485,7 +505,7 @@ function updatedDepthtable(d, s, v) {
               }));
 }
 
-function compHelper(expr, depthtable) {
+function compHelper$1(expr, depthtable) {
   switch (expr.TAG | 0) {
     case /* Cst */0 :
         return {
@@ -497,8 +517,8 @@ function compHelper(expr, depthtable) {
               };
     case /* Add */1 :
         return Belt_List.concatMany([
-                    compHelper(expr._0, depthtable),
-                    compHelper(expr._1, depthtable),
+                    compHelper$1(expr._0, depthtable),
+                    compHelper$1(expr._1, depthtable),
                     {
                       hd: /* Add */0,
                       tl: /* [] */0
@@ -506,8 +526,8 @@ function compHelper(expr, depthtable) {
                   ]);
     case /* Mul */2 :
         return Belt_List.concatMany([
-                    compHelper(expr._0, depthtable),
-                    compHelper(expr._1, depthtable),
+                    compHelper$1(expr._0, depthtable),
+                    compHelper$1(expr._1, depthtable),
                     {
                       hd: /* Mul */1,
                       tl: /* [] */0
@@ -526,7 +546,7 @@ function compHelper(expr, depthtable) {
         var s$1 = expr._0;
         var cur = depth(s$1, depthtable);
         return Belt_List.concatMany([
-                    compHelper(expr._1, depthtable),
+                    compHelper$1(expr._1, depthtable),
                     {
                       hd: {
                         TAG: /* Store */1,
@@ -534,7 +554,7 @@ function compHelper(expr, depthtable) {
                       },
                       tl: /* [] */0
                     },
-                    compHelper(expr._2, updatedDepthtable(depthtable, s$1, cur + 1 | 0)),
+                    compHelper$1(expr._2, updatedDepthtable(depthtable, s$1, cur + 1 | 0)),
                     {
                       hd: {
                         TAG: /* Clear */3,
@@ -548,14 +568,14 @@ function compHelper(expr, depthtable) {
 }
 
 function comp$1(expr) {
-  return compHelper(expr, /* [] */0);
+  return compHelper$1(expr, /* [] */0);
 }
 
 var NamedExprToStackWithName = {
   mangled: mangled,
   depth: depth,
   updatedDepthtable: updatedDepthtable,
-  compHelper: compHelper,
+  compHelper: compHelper$1,
   comp: comp$1
 };
 
@@ -575,7 +595,7 @@ function transformer(state, instr) {
           RE_EXN_ID: "Assert_failure",
           _1: [
             "Demo.res",
-            250,
+            257,
             10
           ],
           Error: new Error()
@@ -784,7 +804,7 @@ var namelessExprList = {
       },
       _1: {
         TAG: /* Var */3,
-        _0: 1
+        _0: 0
       }
     }
   },
@@ -836,7 +856,7 @@ var namelessExprList = {
           },
           _1: {
             TAG: /* Var */3,
-            _0: 1
+            _0: 0
           }
         }
       },
@@ -860,7 +880,7 @@ var namelessExprList = {
 
 function task2Helper(expr) {
   console.log(toString$1(expr));
-  var instrList = comp(expr);
+  var instrList = compHelper(expr, /* [] */0, 0);
   console.log("Compiled to " + listToString(instrList));
   console.log("\n");
   return instrList;
@@ -876,10 +896,14 @@ function task1Helper(instrList) {
 
 function task3Helper(expr) {
   console.log(toString$2(expr));
-  var namedInstrList = compHelper(expr, /* [] */0);
-  console.log("Compiled to " + listToString$1(namedInstrList));
+  var namedInstrList = compHelper$1(expr, /* [] */0);
+  console.log("Compiled to stack machine with names: " + listToString$1(namedInstrList));
   var val = interpret$1(namedInstrList);
   console.log("Interpreted to " + val.toString());
+  var variableInstrList = comp$2(namedInstrList);
+  console.log("Compiled to stack machine with variables: " + listToString(variableInstrList));
+  var variableVal = interpret(variableInstrList);
+  console.log("Interpreted to " + variableVal.toString());
   console.log("\n");
   return val;
 }

@@ -66,27 +66,34 @@ module Nameless = {
 // Task 2. Compiler from Nameless expr to stack machine with variables.
 module NamelessExprToStackMachineWithVariables = {
   open! StackMachineWithVariables 
-  let rec comp = (expr: Nameless.expr) : list<instr> => {
-    switch expr {
-      | Nameless.Cst(i) => list{Cst(i)}
-      | Nameless.Add(expr1, expr2) => Belt.List.concatMany([
-        comp(expr1),
-        comp(expr2),
+  type depthTable = list<int>
+  let rec compHelper = (expr: Nameless.expr, depthtable: depthTable, stkdepth:int) : list<instr> => {
+    switch (expr,depthtable,stkdepth) {
+      | (Nameless.Cst(i),_,_) => list{Cst(i)}
+      | (Nameless.Add(expr1, expr2),dt,sd) => Belt.List.concatMany([
+        compHelper(expr1,dt,sd),
+        compHelper(expr2,dt,sd+1),
         list{Add}
       ])
-      | Nameless.Mul(expr1, expr2) => Belt.List.concatMany([
-        comp(expr1),
-        comp(expr2),
+      | (Nameless.Mul(expr1, expr2),dt,sd) => Belt.List.concatMany([
+        compHelper(expr1,dt,sd),
+        compHelper(expr2,dt,sd+1),
         list{Mul}
       ])
-      | Nameless.Var(i) => list{Var(i)}
-      | Nameless.Let(expr1, expr2) => Belt.List.concatMany([
-        comp(expr1),
-        comp(expr2),
+      | (Nameless.Var(i),dt,sd) => switch dt->Belt.List.get(i) {
+        | Some(h) => list{Var(sd - h)}
+        | None => assert false 
+      }
+      | (Nameless.Let(expr1, expr2),dt,sd) => Belt.List.concatMany([
+        compHelper(expr1, dt, sd),
+        compHelper(expr2, list{sd+1, ...dt}, sd+1),
         list{Swap,Pop}
       ])
     }
   }
+
+  let comp = (expr: Nameless.expr) : list<StackMachineWithVariables.instr> => 
+    compHelper(expr, list{}, 0)
 }
 
 module Named = {
@@ -291,9 +298,9 @@ module Test = {
   let namelessExprList = {
     open! Nameless 
     list{
-  Let(Cst(17),Add(Var(0),Var(1))),
+  Let(Cst(17),Add(Var(0),Var(0))),
   Add(Cst(1),Let(Cst(2),Add(Var(0),Cst(7)))),
-  Let(Let(Cst(1),Var(0)),Let(Var(0),Var(1))),
+  Let(Let(Cst(1),Var(0)),Let(Var(0),Var(0))),
   Let(Cst(1),Cst(2))
     }
   }
@@ -317,9 +324,13 @@ module Test = {
   let task3Helper = (expr :Named.expr) : int => {
     Js.log(Named.toString(expr))
     let namedInstrList = NamedExprToStackWithName.comp(expr)
-    Js.log("Compiled to " ++ StackMachineWithName.listToString(namedInstrList))
+    Js.log("Compiled to stack machine with names: " ++ StackMachineWithName.listToString(namedInstrList))
     let val = StackMachineWithName.interpret(namedInstrList)
     Js.log("Interpreted to " ++ Js.Int.toString(val))
+    let variableInstrList = StackMachineWithNameToWithVariables.comp(namedInstrList)
+    Js.log("Compiled to stack machine with variables: " ++ StackMachineWithVariables.listToString(variableInstrList))
+    let variableVal = StackMachineWithVariables.interpret(variableInstrList)
+    Js.log("Interpreted to " ++ Js.Int.toString(variableVal))
     Js.log("\n")
     val
   }
