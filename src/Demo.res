@@ -151,7 +151,10 @@ module StackMachineWithName = {
       | (list{Mul, ...rest}, list{a, b, ...stk}, env) => eval(rest, list{a*b, ...stk}, env)
       | (list{Store(s), ...rest}, list{a, ...stk} , env) => eval (rest, stk, list{(s,a), ...env})
       | (list{Load(s), ...rest}, stk, env) => eval(rest, list{assoc(s,env), ...stk}, env)
-      | (list{Clear(s), ...rest}, stk, env) => eval(rest, stk, removeName(s,env))
+      | (list{Clear(s), ...rest}, stk, list{(x,_), ...env}) => {
+        assert (s==x)
+        eval(rest, stk, env)
+        }
       | (list{}, stk, env) => stk
       | _ => {
         Js.log(listToString(instrs))
@@ -273,3 +276,70 @@ module StackMachineWithNameToWithVariables = {
   }
   
 }
+
+module Test = {
+  let namedExprList = {
+    open! Named
+    list{
+  Let("x",Cst(17),Add(Var("x"),Var("x"))),
+  Add(Cst(1),Let("x",Cst(2),Add(Var("x"),Cst(7)))),
+  Let("x",Let("x",Cst(1),Var("x")),Let("x",Var("x"),Var("x"))),
+  Let("x",Cst(1),Cst(2))
+    }
+  }
+
+  let namelessExprList = {
+    open! Nameless 
+    list{
+  Let(Cst(17),Add(Var(0),Var(1))),
+  Add(Cst(1),Let(Cst(2),Add(Var(0),Cst(7)))),
+  Let(Let(Cst(1),Var(0)),Let(Var(0),Var(1))),
+  Let(Cst(1),Cst(2))
+    }
+  }
+
+  let task2Helper = (expr :Nameless.expr) : list<StackMachineWithVariables.instr> => {
+    Js.log(Nameless.toString(expr))
+    let instrList = NamelessExprToStackMachineWithVariables.comp(expr)
+    Js.log("Compiled to " ++ StackMachineWithVariables.listToString(instrList))
+    Js.log("\n")
+    instrList
+  }
+
+  let task1Helper = (instrList : list<StackMachineWithVariables.instr>) : int => {
+    Js.log(StackMachineWithVariables.listToString(instrList))
+    let val = StackMachineWithVariables.interpret(instrList)
+    Js.log("Interpreted to " ++ Js.Int.toString(val))
+    Js.log("\n")
+    val
+  }
+
+  let task3Helper = (expr :Named.expr) : int => {
+    Js.log(Named.toString(expr))
+    let namedInstrList = NamedExprToStackWithName.comp(expr)
+    Js.log("Compiled to " ++ StackMachineWithName.listToString(namedInstrList))
+    let val = StackMachineWithName.interpret(namedInstrList)
+    Js.log("Interpreted to " ++ Js.Int.toString(val))
+    Js.log("\n")
+    val
+  }
+
+  let run = () => {
+    Js.log("Task 2 test:")
+    let task2res = List.map(task2Helper, namelessExprList)
+
+    Js.log("\n")
+
+    Js.log("Task 1 test:")
+    let task1res = List.map(task1Helper, task2res)
+
+    Js.log("\n")
+
+    Js.log("Task 3 test:")
+    let task3res = List.map(task3Helper, namedExprList)
+
+    Js.log("\n")
+  }
+}
+
+Test.run()
